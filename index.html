@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tech Sparks Puzzle</title>
+<style>
+body {
+  text-align: center;
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: white;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Container to center puzzle */
+#puzzleContainer {
+  display: flex;
+  justify-content: center; /* horizontal center */
+  align-items: center;     /* vertical center */
+  height: 80vh;            /* slightly smaller to fit form above */
+}
+
+/* Puzzle canvas */
+#puzzleCanvas {
+  border: 2px solid #f00;
+  display: block;
+  background: white;
+  touch-action: none;
+}
+
+#confettiCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#congratsPage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.9);
+  color: white;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+#congratsPage h1 {
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+button {
+  padding: 12px 20px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #f00;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #c00;
+}
+
+#playerForm {
+  margin-top: 15px;
+}
+
+#playerForm input {
+  padding: 8px;
+  margin: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+</style>
+</head>
+<body>
+<h1>🧩 Tech Sparks Jigsaw Puzzle</h1>
+
+<!-- Player form -->
+<div id="playerForm">
+  <input type="text" id="playerName" placeholder="Enter your Name">
+  <input type="text" id="playerClass" placeholder="Enter your Class">
+  <button onclick="startGame()">Start Game</button>
+</div>
+
+<!-- Centered puzzle container -->
+<div id="puzzleContainer">
+  <canvas id="puzzleCanvas" width="300" height="400" style="display:none;"></canvas>
+</div>
+
+<p id="instructions" style="display:none;">Drag and drop pieces into place to solve the puzzle!</p>
+<canvas id="confettiCanvas"></canvas>
+
+<div id="congratsPage">
+  <h1>🎉 Congratulations! 🎉</h1>
+  <button onclick="restartGame()">Play Again</button>
+</div>
+
+<script>
+const canvas = document.getElementById("puzzleCanvas");
+const ctx = canvas.getContext("2d");
+const rows = 3, cols = 3;
+let pieceWidth, pieceHeight;
+let pieces = [];
+let draggingPiece = null;
+let offsetX, offsetY;
+let participants = []; // store names & classes
+
+const img = new Image();
+img.src = "poster.jpg"; // replace with your event poster
+img.onload = resizeCanvas;
+
+function resizeCanvas() {
+  canvas.width = Math.min(window.innerWidth * 0.9, 400);
+  canvas.height = canvas.width * (4/3);
+  pieceWidth = canvas.width / cols;
+  pieceHeight = canvas.height / rows;
+  if (canvas.style.display !== "none") {
+    initPuzzle();
+  }
+}
+window.addEventListener("resize", resizeCanvas);
+
+// Start game after entering name & class
+function startGame() {
+  const name = document.getElementById("playerName").value.trim();
+  const playerClass = document.getElementById("playerClass").value.trim();
+  if (!name || !playerClass) {
+    alert("Please enter both Name and Class.");
+    return;
+  }
+  participants.push({ name, class: playerClass });
+  document.getElementById("playerForm").style.display = "none";
+  canvas.style.display = "block";
+  document.getElementById("instructions").style.display = "block";
+  initPuzzle();
+}
+
+function initPuzzle() {
+  pieces = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      pieces.push({
+        row: r,
+        col: c,
+        x: Math.random() * (canvas.width - pieceWidth),
+        y: Math.random() * (canvas.height - pieceHeight),
+        correctX: c * pieceWidth,
+        correctY: r * pieceHeight
+      });
+    }
+  }
+  drawPuzzle();
+}
+
+function drawPuzzle() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let p of pieces) {
+    ctx.drawImage(
+      img,
+      p.col * (img.width / cols),
+      p.row * (img.height / rows),
+      img.width / cols,
+      img.height / rows,
+      p.x,
+      p.y,
+      pieceWidth,
+      pieceHeight
+    );
+    ctx.strokeStyle = "#000";
+    ctx.strokeRect(p.x, p.y, pieceWidth, pieceHeight);
+  }
+}
+
+// Drag controls
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  if (e.touches) {
+    return {
+      x: e.touches[0].clientX - rect.left,
+      y: e.touches[0].clientY - rect.top
+    };
+  } else {
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+}
+
+canvas.addEventListener("mousedown", startDrag);
+canvas.addEventListener("touchstart", startDrag);
+
+function startDrag(e) {
+  e.preventDefault();
+  const { x, y } = getPos(e);
+  for (let p of pieces) {
+    if (x > p.x && x < p.x + pieceWidth && y > p.y && y < p.y + pieceHeight) {
+      draggingPiece = p;
+      offsetX = x - p.x;
+      offsetY = y - p.y;
+    }
+  }
+}
+
+canvas.addEventListener("mousemove", drag);
+canvas.addEventListener("touchmove", drag);
+
+function drag(e) {
+  if (draggingPiece) {
+    const { x, y } = getPos(e);
+    draggingPiece.x = x - offsetX;
+    draggingPiece.y = y - offsetY;
+    drawPuzzle();
+  }
+}
+
+canvas.addEventListener("mouseup", endDrag);
+canvas.addEventListener("touchend", endDrag);
+
+function endDrag() {
+  if (draggingPiece) {
+    if (Math.abs(draggingPiece.x - draggingPiece.correctX) < 15 &&
+        Math.abs(draggingPiece.y - draggingPiece.correctY) < 15) {
+      draggingPiece.x = draggingPiece.correctX;
+      draggingPiece.y = draggingPiece.correctY;
+    }
+    draggingPiece = null;
+    drawPuzzle();
+    checkSolved();
+  }
+}
+
+function checkSolved() {
+  let solved = pieces.every(p => p.x === p.correctX && p.y === p.correctY);
+  if (solved) {
+    launchConfetti();
+    document.getElementById("congratsPage").style.display = "flex";
+  }
+}
+
+// 🎉 Confetti
+const confettiCanvas = document.getElementById("confettiCanvas");
+const cctx = confettiCanvas.getContext("2d");
+confettiCanvas.width = window.innerWidth;
+confettiCanvas.height = window.innerHeight;
+let confetti = [];
+let confettiAnimationId = null;
+
+function launchConfetti() {
+  confetti = [];
+  for (let i = 0; i < 200; i++) {
+    confetti.push({
+      x: Math.random() * confettiCanvas.width,
+      y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+      r: Math.random() * 6 + 2,
+      color: "hsl(" + Math.random() * 360 + ",100%,50%)",
+      speed: Math.random() * 3 + 2
+    });
+  }
+  drawConfetti();
+}
+
+function drawConfetti() {
+  cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confetti.forEach(p => {
+    cctx.beginPath();
+    cctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    cctx.fillStyle = p.color;
+    cctx.fill();
+    p.y += p.speed;
+    if (p.y > confettiCanvas.height) p.y = -10;
+  });
+  confettiAnimationId = requestAnimationFrame(drawConfetti);
+}
+
+// Restart
+function restartGame() {
+  document.getElementById("congratsPage").style.display = "none";
+  if (confettiAnimationId) {
+    cancelAnimationFrame(confettiAnimationId);
+    confettiAnimationId = null;
+  }
+  confetti = [];
+  cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  resizeCanvas();
+  document.getElementById("playerForm").style.display = "block";
+  document.getElementById("instructions").style.display = "none";
+}
+
+// Organizer-only: Export participant list (Ctrl+E / Cmd+E)
+document.addEventListener("keydown", function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+    exportParticipants();
+  }
+});
+
+function exportParticipants() {
+  if (participants.length === 0) {
+    alert("No participants yet.");
+    return;
+  }
+  let csvContent = "data:text/csv;charset=utf-8,Name,Class\n";
+  participants.forEach(p => {
+    csvContent += `${p.name},${p.class}\n`;
+  });
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "participants.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+</script>
+</body>
+</html>
